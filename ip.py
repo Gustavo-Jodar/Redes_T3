@@ -19,6 +19,9 @@ class IP:
     def __raw_recv(self, datagrama):
         dscp, ecn, identification, flags, frag_offset, ttl, proto, \
            src_addr, dst_addr, payload = read_ipv4_header(datagrama)
+        
+        datagrama_recebido = datagrama[:28]
+
         if dst_addr == self.meu_endereco:
             # atua como host
             if proto == IPPROTO_TCP and self.callback:
@@ -30,16 +33,26 @@ class IP:
     
             ttl = ttl - 1
             #gera cabeçalho para colocar no cal_checksum
-            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, 6, 0) + str2addr(src_addr) + str2addr(dst_addr)
+            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, IPPROTO_TCP, 0) + str2addr(src_addr) + str2addr(dst_addr)
             checksum = calc_checksum(datagrama)
             #monta datagrama com o checksum e payload
-            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, 6, checksum) + str2addr(src_addr) + str2addr(dst_addr) + payload
+            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, IPPROTO_TCP, checksum) + str2addr(src_addr) + str2addr(dst_addr) + payload
             
+            #enviar o datagrama para o remetente com protocólo ICMP
             if(ttl == 0):
-                return
-            else:
-                self.enlace.enviar(datagrama, next_hop)
+                next_hop = self._next_hop(src_addr)
 
+                #monta novo payload com mensagem do ICMP num_max_envios alcançados
+                ICMP_message = struct.pack('!BBHI', 11, 0, 0, 0) + datagrama_recebido
+                checksum = calc_checksum(ICMP_message)
+                ICMP_message = struct.pack('!BBHI', 11, 0, checksum, 0) + datagrama_recebido
+ 
+                datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(ICMP_message), self.contador, 0, 64, IPPROTO_ICMP, 0) + str2addr(self.meu_endereco) + str2addr(src_addr)
+                checksum = calc_checksum(datagrama)
+                datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(ICMP_message), self.contador, 0, 64, IPPROTO_ICMP, checksum) + str2addr(self.meu_endereco) + str2addr(src_addr) + ICMP_message
+            
+            self.enlace.enviar(datagrama, next_hop)
+                
 
     def _next_hop(self, dest_addr):
         # TODO: Use a tabela de encaminhamento para determinar o próximo salto
