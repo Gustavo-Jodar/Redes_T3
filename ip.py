@@ -27,7 +27,18 @@ class IP:
             # atua como roteador
             next_hop = self._next_hop(dst_addr)
             # TODO: Trate corretamente o campo TTL do datagrama
-            self.enlace.enviar(datagrama, next_hop)
+    
+            ttl = ttl - 1
+            #gera cabeçalho para colocar no cal_checksum
+            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, 6, 0) + str2addr(src_addr) + str2addr(dst_addr)
+            checksum = calc_checksum(datagrama)
+            #monta datagrama com o checksum e payload
+            datagrama = struct.pack('!BBHHHBBH', 69, 0, 20+len(payload), self.contador, 0, ttl, 6, checksum) + str2addr(src_addr) + str2addr(dst_addr) + payload
+            
+            if(ttl == 0):
+                return
+            else:
+                self.enlace.enviar(datagrama, next_hop)
 
 
     def _next_hop(self, dest_addr):
