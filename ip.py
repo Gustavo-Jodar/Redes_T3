@@ -29,15 +29,20 @@ class IP:
             # TODO: Trate corretamente o campo TTL do datagrama
             self.enlace.enviar(datagrama, next_hop)
 
+
     def _next_hop(self, dest_addr):
         # TODO: Use a tabela de encaminhamento para determinar o próximo salto
         # (next_hop) a partir do endereço de destino do datagrama (dest_addr).
         # Retorne o next_hop para o dest_addr fornecido.
         dest_addr = dest_addr
+        n = 0
+        to = None
         for hop in self.tabela:
-            if(ipaddress.ip_address(dest_addr) in ipaddress.ip_network(hop[0])):
-                return hop[1]
-        return None
+            if(ipaddress.ip_address(dest_addr) in ipaddress.ip_network(hop[0]) and int(hop[0].split("/")[1]) >= n):
+                n = int(hop[0].split("/")[1])
+                to = hop[1]
+        
+        return to
             
         
 
